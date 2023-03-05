@@ -3,25 +3,22 @@ package com.chinaka.task.mintyn.service;
 import com.chinaka.task.mintyn.dto.GenericResponse;
 import com.chinaka.task.mintyn.model.Order;
 import com.chinaka.task.mintyn.dto.OrderDto;
-import com.chinaka.task.mintyn.dto.OrderResponse;
-import com.chinaka.task.mintyn.dto.ResponseData;
 import com.chinaka.task.mintyn.model.Product;
 import com.chinaka.task.mintyn.repository.OrderRepository;
 import com.chinaka.task.mintyn.repository.ProductRepository;
-import com.chinaka.task.mintyn.util.MappingHelper;
 import com.chinaka.task.mintyn.util.ResponseHelper;
-import com.chinaka.task.mintyn.util.ProductStatus;
 import com.chinaka.task.mintyn.validation.OrderExistException;
 import com.chinaka.task.mintyn.util.Constants;
 import com.chinaka.task.mintyn.validation.ProductExistException;
-import jdk.jshell.spi.ExecutionControlProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -40,6 +37,11 @@ public class OrderServiceImpl implements OrderService{
     private final ProductRepository productRepository;
     private final ResponseHelper responseHelper;
 
+    @Value("${topic.name.producer}")
+    private String topicName;
+
+    private final KafkaTemplate<String, String> kafkaTemplate;
+
     @Override
     public GenericResponse addOrder(OrderDto request){
 
@@ -49,7 +51,6 @@ public class OrderServiceImpl implements OrderService{
             if(Objects.isNull(getOrder))
                 throw new ProductExistException("Product Not found");
 
-//            int total = Integer.valueOf(String.valueOf(getOrder.getPrice())) * Integer.valueOf(request.getQuantity());
             BigDecimal total = getOrder.getPrice().multiply(new BigDecimal(request.getQuantity()));
             Order order = new Order();
             log.info("setting order values");
@@ -63,10 +64,11 @@ public class OrderServiceImpl implements OrderService{
             order.setDateCreated(getCurrentDate());
             log.info("inserting order, {}", order);
             Order respBody = orderRepository.save(order);
+            kafkaTemplate.send(topicName, respBody.toString());
             return responseHelper.getResponse(Constants.SUCCESS_CODE, Constants.SUCCESS, respBody, HttpStatus.CREATED);
         }
         catch (Exception e){
-            return responseHelper.getResponse(FAILED_CODE, e.getMessage(), "", HttpStatus.EXPECTATION_FAILED);
+            return responseHelper.getResponse(FAILED_CODE, e.getMessage(), e.getStackTrace(), HttpStatus.EXPECTATION_FAILED);
         }
     }
 
