@@ -1,0 +1,27 @@
+package com.chinaka.task.mintyn.model;
+
+import com.chinaka.task.mintyn.util.ProductStatus;
+import lombok.Data;
+
+import javax.persistence.*;
+import java.math.BigDecimal;
+import java.util.Date;
+
+@Entity
+@Data
+//@Table(name = "orders", indexes = @Index(name = "id_index", columnList = "id"))
+@Table(name = "orders")
+public class Order {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String productId;
+    private int quantity;
+    private BigDecimal price;
+    private BigDecimal total;
+    private String customerName;
+    private String customerPhone;
+    private String customerAddress;
+    private Date dateCreated;
+    private Date dateUpdated;
+}
